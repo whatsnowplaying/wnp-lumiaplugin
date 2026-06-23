@@ -84,11 +84,12 @@ function parseMdnsPacket(buf) {
     const rd = pos + 10;
     pos = rd + rdlen;
 
-    if (type === 33 && rdlen > 6) {
+    if (rd + rdlen > buf.length) break;
+    if (type === 33 && rdlen > 6 && rd + 6 <= buf.length) {
       const port = buf.readUInt16BE(rd + 4);
       const { name: target } = decodeDnsName(buf, rd + 6);
       srvRecords.push({ port, target, name });
-    } else if (type === 1 && rdlen === 4) {
+    } else if (type === 1 && rdlen === 4 && rd + 4 <= buf.length) {
       aRecords[name.toLowerCase()] = `${buf[rd]}.${buf[rd+1]}.${buf[rd+2]}.${buf[rd+3]}`;
     }
   }
