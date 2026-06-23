@@ -1,0 +1,92 @@
+{
+  "id": "whatsnowplaying",
+  "name": "What's Now Playing",
+  "version": "1.0.0",
+  "author": "whatsnowplaying",
+  "email": "",
+  "website": "https://whatsnowplaying.github.io/whats-now-playing/",
+  "repository": "https://github.com/whatsnowplaying/whats-now-playing",
+  "description": "Exposes DJ track metadata from What's Now Playing as Lumia variables and fires a switchSong alert on every track change.",
+  "license": "MIT",
+  "lumiaVersion": "^9.0.0",
+  "category": "apps",
+  "main": "main.js",
+  "keywords": "dj, nowplaying, music, serato, traktor, virtualdj",
+  "config": {
+    "settings": [
+      {
+        "key": "hostname",
+        "label": "WNP Hostname",
+        "type": "text",
+        "defaultValue": "auto",
+        "helperText": "Set to 'auto' to discover WNP automatically on the network (recommended). Enter an IP address to connect to a specific machine."
+      },
+      {
+        "key": "port",
+        "label": "WNP Port",
+        "type": "number",
+        "defaultValue": 8899,
+        "min": 1,
+        "max": 65535,
+        "helperText": "HTTP port that What's Now Playing is running on (default: 8899). Change only if you customized the WNP web server port."
+      }
+    ],
+    "variables": [
+      { "name": "title",          "value": "" },
+      { "name": "artist",         "value": "" },
+      { "name": "album",          "value": "" },
+      { "name": "albumartist",    "value": "" },
+      { "name": "genre",          "value": "" },
+      { "name": "date",           "value": "" },
+      { "name": "bpm",            "value": "" },
+      { "name": "key",            "value": "" },
+      { "name": "label",          "value": "" },
+      { "name": "comments",       "value": "" },
+      { "name": "duration",       "value": "" },
+      { "name": "duration_hhmmss","value": "" },
+      { "name": "duration_sec",   "value": "" },
+      { "name": "isrc",           "value": "" },
+      { "name": "coverurl",       "value": "" },
+      { "name": "filename",       "value": "" },
+      { "name": "track",          "value": "" },
+      { "name": "track_total",    "value": "" },
+      { "name": "composer",       "value": "" },
+      { "name": "deck",           "value": "" },
+      { "name": "requester",      "value": "" },
+      { "name": "requestdisplayname", "value": "" },
+      { "name": "artistshortbio", "value": "" }
+    ],
+    "alerts": [
+      {
+        "title": "Track Changed",
+        "key": "switchSong",
+        "acceptedVariables": [
+          "whatsnowplaying_title",
+          "whatsnowplaying_artist",
+          "whatsnowplaying_album",
+          "whatsnowplaying_albumartist",
+          "whatsnowplaying_genre",
+          "whatsnowplaying_date",
+          "whatsnowplaying_bpm",
+          "whatsnowplaying_key",
+          "whatsnowplaying_label",
+          "whatsnowplaying_comments",
+          "whatsnowplaying_duration",
+          "whatsnowplaying_duration_hhmmss",
+          "whatsnowplaying_duration_sec",
+          "whatsnowplaying_isrc",
+          "whatsnowplaying_coverurl",
+          "whatsnowplaying_filename",
+          "whatsnowplaying_track",
+          "whatsnowplaying_track_total",
+          "whatsnowplaying_composer",
+          "whatsnowplaying_deck",
+          "whatsnowplaying_requester",
+          "whatsnowplaying_requestdisplayname",
+          "whatsnowplaying_artistshortbio"
+        ],
+        "defaultMessage": "Now playing: {{whatsnowplaying_title}} by {{whatsnowplaying_artist}}"
+      }
+    ]
+  }
+}
