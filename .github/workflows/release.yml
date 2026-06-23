@@ -19,6 +19,10 @@ jobs:
       - name: Set version from tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: tag '${GITHUB_REF_NAME}' did not produce a valid semver version ('${VERSION}')"
+            exit 1
+          fi
           jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
 
       - name: Build plugin
