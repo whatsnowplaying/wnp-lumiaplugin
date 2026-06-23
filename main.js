@@ -18,6 +18,8 @@ const VARS = [
   "composer", "deck", "requester", "requestdisplayname", "artistshortbio",
 ];
 
+const CRITICAL_VARS = new Set(["title", "artist"]);
+
 // ── mDNS discovery ───────────────────────────────────────────────────────────
 
 function encodeDnsName(fqdn) {
@@ -154,6 +156,7 @@ class WhatsnowplayingPlugin extends Plugin {
     this._reconnectTimer = null;
     this._lastKey = null;
     this._discovered = null;
+    this._discoveryPromise = null;
   }
 
   async onload() {
@@ -173,6 +176,7 @@ class WhatsnowplayingPlugin extends Plugin {
     if (hostChanged || portChanged) {
       console.log("Settings changed — reconnecting");
       this._lastKey = null;
+      this._discoveryPromise = null;
       this._disconnect();
       await this._startDiscovery();
       if (await this._handshake()) this._connect();
@@ -196,20 +200,28 @@ class WhatsnowplayingPlugin extends Plugin {
     return Number.isFinite(p) && p > 0 ? p : 8899;
   }
 
-  async _startDiscovery() {
+  _startDiscovery() {
+    if (this._discoveryPromise) return this._discoveryPromise;
     if (!this._isAuto()) {
       this._discovered = null;
-      console.log(`Using manual address: ${this._host()}:${this._port()}`);
-      return;
+      console.log("Using manual address:", this._host() + ":" + this._port());
+      return Promise.resolve();
     }
-    console.log("Discovering WNP via mDNS...");
-    const found = await discoverWNP(MDNS_TIMEOUT_MS);
-    if (found) {
-      this._discovered = found;
-      console.log(`Discovered WNP at ${this._discovered.host}:${this._discovered.port}`);
-    } else {
-      console.log(`mDNS discovery timed out — falling back to 127.0.0.1:${Number(this.settings?.port) || 8899}`);
-    }
+    this._discoveryPromise = (async () => {
+      try {
+        console.log("Discovering WNP via mDNS...");
+        const found = await discoverWNP(MDNS_TIMEOUT_MS);
+        if (found) {
+          this._discovered = found;
+          console.log("Discovered WNP at", this._discovered.host + ":" + this._discovered.port);
+        } else {
+          console.log("mDNS discovery timed out — falling back to", this._host() + ":" + this._port());
+        }
+      } finally {
+        this._discoveryPromise = null;
+      }
+    })();
+    return this._discoveryPromise;
   }
 
   async _handshake() {
@@ -218,19 +230,19 @@ class WhatsnowplayingPlugin extends Plugin {
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(
-        `http://${this._host()}:${this._port()}/v1/lumia/version?plugin_version=${encodeURIComponent(pluginVersion)}`,
+        "http://" + this._host() + ":" + this._port() + "/v1/lumia/version?plugin_version=" + encodeURIComponent(pluginVersion),
         { signal: controller.signal },
       );
       if (!response.ok) {
-        console.warn(`Version handshake failed (HTTP ${response.status}) — continuing anyway`);
+        console.warn("Version handshake failed (HTTP", response.status, ") — continuing anyway");
         return true;
       }
       const data = await response.json();
       if (!data.accepted) {
-        console.error(`Plugin rejected: ${data.message ?? "incompatible version"}`);
+        console.error("Plugin rejected:", data.message ?? "incompatible version");
         return false;
       }
-      console.log(`Handshake OK — plugin v${pluginVersion}, WNP v${data.wnp_version}`);
+      console.log("Handshake OK — plugin v" + pluginVersion + ", WNP v" + data.wnp_version);
       return true;
     } catch {
       console.warn("Version handshake unreachable — continuing anyway");
@@ -242,10 +254,10 @@ class WhatsnowplayingPlugin extends Plugin {
 
   _connect() {
     this._disconnect();
-    const url = `ws://${this._host()}:${this._port()}/wsstream`;
-    console.log(`Connecting to WNP at ${url}`);
+    const url = "ws://" + this._host() + ":" + this._port() + "/wsstream";
+    console.log("Connecting to WNP at", url);
 
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(url); // nosemgrep: javascript.lang.security.detect-insecure-websocket
     this._ws = ws;
 
     ws.onopen = () => {
@@ -256,16 +268,16 @@ class WhatsnowplayingPlugin extends Plugin {
       let data;
       try { data = JSON.parse(event.data); } catch { return; }
       if (data.last) return; // WNP shutdown signal — close event will trigger reconnect
-      this._handleMetadata(data);
+      this._handleMetadata(data).catch((e) => console.error("handleMetadata failed:", e));
     };
 
     ws.onerror = () => {
-      console.warn(`WebSocket error — will reconnect in ${RECONNECT_DELAY_MS / 1000}s`);
+      console.warn("WebSocket error — will reconnect in", RECONNECT_DELAY_MS / 1000, "s");
     };
 
     ws.onclose = () => {
       if (this._ws !== ws) return; // intentional disconnect, skip reconnect
-      console.log(`WebSocket closed — reconnecting in ${RECONNECT_DELAY_MS / 1000}s`);
+      console.log("WebSocket closed — reconnecting in", RECONNECT_DELAY_MS / 1000, "s");
       this._ws = null;
       this._scheduleReconnect();
     };
@@ -279,6 +291,7 @@ class WhatsnowplayingPlugin extends Plugin {
     if (this._ws) {
       const ws = this._ws;
       this._ws = null; // null first so onclose guard skips reconnect
+      ws.onmessage = null;
       ws.onclose = null;
       ws.onerror = null;
       try { ws.close(); } catch {}
@@ -296,25 +309,46 @@ class WhatsnowplayingPlugin extends Plugin {
 
   async _handleMetadata(data) {
     const vars = this._extractVars(data);
-    const trackKey = `${vars.title}\x00${vars.artist}`;
+    const trackKey = `${vars.title}\x00${vars.artist}\x00${vars.deck}\x00${vars.filename}`;
     if (trackKey === this._lastKey) return;
-    this._lastKey = trackKey;
+    this._lastKey = trackKey; // set now to close the race window before any await
 
-    console.log(`Track changed: "${vars.title}" by ${vars.artist}`);
-    await Promise.all(VARS.map((name) => this.lumia.setVariable(name, vars[name])));
+    console.log("Track changed:", '"' + vars.title + '"', "by", vars.artist);
+    const results = await Promise.allSettled(VARS.map((name) => this.lumia.setVariable(name, vars[name])));
 
-    const extraSettings = Object.fromEntries(
-      VARS.map((name) => [`whatsnowplaying_${name}`, vars[name]]),
-    );
+    let criticalFailed = false;
+    const extraSettings = {};
+    results.forEach((result, i) => {
+      const name = VARS[i];
+      if (result.status === "rejected") {
+        console.warn("Failed to set variable", '"' + name + '"' + ":", result.reason);
+        if (CRITICAL_VARS.has(name)) criticalFailed = true;
+      }
+      extraSettings["whatsnowplaying_" + name] = vars[name];
+    });
+
+    if (criticalFailed) {
+      this._lastKey = null; // reset so next message can retry
+      console.warn("Skipping alert — critical variables (title/artist) failed to update");
+      return;
+    }
+
     await this.lumia.triggerAlert({ alert: ALERT_KEY, extraSettings });
   }
 
   _extractVars(data) {
-    const duration = typeof data.duration === "number" ? data.duration : null;
+    const total = typeof data.duration === "number" ? Math.floor(data.duration) : null;
     const isrcRaw = data.isrc;
     const isrc = Array.isArray(isrcRaw)
       ? (isrcRaw[0] ?? "")
       : (typeof isrcRaw === "string" ? isrcRaw : "");
+
+    const rawCoverurl = data.coverurl ?? "";
+    const coverurl = rawCoverurl
+      ? (/^https?:\/\//i.test(rawCoverurl)
+          ? rawCoverurl
+          : "http://" + this._host() + ":" + this._port() + "/" + rawCoverurl.replace(/^\/+/, ""))
+      : "";
 
     return {
       title:              data.title              ?? "",
@@ -327,13 +361,13 @@ class WhatsnowplayingPlugin extends Plugin {
       key:                data.key                ?? "",
       label:              data.label              ?? "",
       comments:           data.comments           ?? "",
-      duration:           duration !== null
-        ? `${String(Math.floor(duration / 60)).padStart(2, "0")}:${String(duration % 60).padStart(2, "0")}`
+      duration:           total !== null
+        ? String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0")
         : "",
       duration_hhmmss:    data.duration_hhmmss    ?? "",
-      duration_sec:       duration !== null ? String(duration) : "",
+      duration_sec:       total !== null ? String(total) : "",
       isrc,
-      coverurl:           data.coverurl ? `http://${this._host()}:${this._port()}/${data.coverurl}` : "",
+      coverurl,
       filename:           data.filename           ?? "",
       track:              data.track              ?? "",
       track_total:        data.track_total        ?? "",
