@@ -38,18 +38,18 @@ Every track change updates the following Lumia variables:
 | `{{whatsnowplaying_bpm}}` | Tempo in BPM |
 | `{{whatsnowplaying_key}}` | Musical key |
 | `{{whatsnowplaying_label}}` | Record label |
-| `{{whatsnowplaying_comments}}` | Track comment field |
+| `{{whatsnowplaying_comments}}` | Track comments |
 | `{{whatsnowplaying_duration}}` | Duration in `MM:SS` format |
 | `{{whatsnowplaying_duration_hhmmss}}` | Duration in `HH:MM:SS` format |
 | `{{whatsnowplaying_duration_sec}}` | Duration in whole seconds |
 | `{{whatsnowplaying_isrc}}` | ISRC code |
 | `{{whatsnowplaying_cover_palette}}` | Up to 6 dominant hex colors from the cover art, comma-separated (e.g. `#c85028,#3a7abf`) |
 | `{{whatsnowplaying_cover_palette_lighting}}` | Up to 6 vibrant hex colors from the cover art, filtered for stage-usable saturation |
-| `{{whatsnowplaying_cover_palette_type}}` | Character of the cover art: `vibrant`, `desaturated`, or `monochrome` |
+| `{{whatsnowplaying_cover_palette_type}}` | Dominant color quality of the cover art: `vibrant`, `desaturated`, or `monochrome` |
 | `{{whatsnowplaying_coverurl}}` | Cover art URL (requires WNP web server) |
 | `{{whatsnowplaying_filename}}` | Local file path |
 | `{{whatsnowplaying_track}}` | Track number |
-| `{{whatsnowplaying_track_total}}` | Total tracks on album |
+| `{{whatsnowplaying_track_total}}` | Total number of tracks on the album |
 | `{{whatsnowplaying_composer}}` | Composer |
 | `{{whatsnowplaying_deck}}` | DJ deck the track is playing on |
 | `{{whatsnowplaying_requester}}` | Username who requested the track |
@@ -60,6 +60,8 @@ A **Track Changed** (`switchSong`) alert fires on every track change. Attach lig
 overlays, or any other Lumia Stream automation to this alert and reference the variables above.
 
 ### Cover Art Colors
+
+> **Requires What's Now Playing 5.3.0 or later.** These variables will be empty on earlier versions.
 
 See the [WNP template variable reference](https://whatsnowplaying.github.io/whats-now-playing/latest/reference/templatevariables/#cover-art-colors)
 for a full explanation of `cover_palette`, `cover_palette_lighting`, and `cover_palette_type`.
