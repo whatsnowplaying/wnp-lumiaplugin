@@ -14,7 +14,8 @@ const RECONNECT_DELAY_MS = 5000;
 const VARS = [
   "title", "artist", "album", "albumartist", "genre", "date",
   "bpm", "key", "label", "comments", "duration", "duration_hhmmss", "duration_sec",
-  "isrc", "coverurl", "filename", "track", "track_total",
+  "isrc", "cover_palette", "cover_palette_lighting", "cover_palette_type",
+  "coverurl", "filename", "track", "track_total",
   "composer", "deck", "requester", "requestdisplayname", "artistshortbio",
 ];
 
