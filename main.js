@@ -9,7 +9,9 @@ const MDNS_ADDR = "224.0.0.251";
 const MDNS_PORT = 5353;
 const WNP_SERVICE = "_whatsnowplaying._tcp.local.";
 const MDNS_TIMEOUT_MS = 3000;
-const RECONNECT_DELAY_MS = 5000;
+const RECONNECT_BASE_MS = 2000;
+const RECONNECT_MAX_MS = 60000;
+const RECONNECT_MAX_RETRIES = 10;
 
 const VARS = [
   "title", "artist", "album", "albumartist", "genre", "date",
@@ -156,9 +158,11 @@ class WhatsnowplayingPlugin extends Plugin {
     super(manifest, context);
     this._ws = null;
     this._reconnectTimer = null;
+    this._retryCount = 0;
     this._lastKey = null;
     this._discovered = null;
     this._discoveryPromise = null;
+    this._discoveryStartedAt = 0;
   }
 
   async onload() {
@@ -170,6 +174,10 @@ class WhatsnowplayingPlugin extends Plugin {
   onunload() {
     console.log("What's Now Playing plugin unloaded");
     this._disconnect();
+  }
+
+  onupdate(oldVersion, newVersion) {
+    console.log("What's Now Playing plugin updated from", oldVersion, "to", newVersion);
   }
 
   async onsettingsupdate(settings, previous = {}) {
@@ -203,12 +211,18 @@ class WhatsnowplayingPlugin extends Plugin {
   }
 
   _startDiscovery() {
-    if (this._discoveryPromise) return this._discoveryPromise;
+    if (this._discoveryPromise) {
+      const age = Date.now() - this._discoveryStartedAt;
+      if (age < MDNS_TIMEOUT_MS + 1000) return this._discoveryPromise;
+      console.warn("mDNS discovery stale — resetting");
+      this._discoveryPromise = null;
+    }
     if (!this._isAuto()) {
       this._discovered = null;
       console.log("Using manual address:", this._host() + ":" + this._port());
       return Promise.resolve();
     }
+    this._discoveryStartedAt = Date.now();
     this._discoveryPromise = (async () => {
       try {
         console.log("Discovering WNP via mDNS...");
@@ -264,6 +278,7 @@ class WhatsnowplayingPlugin extends Plugin {
 
     ws.onopen = () => {
       console.log("Connected to WNP WebSocket");
+      this._retryCount = 0;
     };
 
     ws.onmessage = (event) => {
@@ -274,12 +289,12 @@ class WhatsnowplayingPlugin extends Plugin {
     };
 
     ws.onerror = () => {
-      console.warn("WebSocket error — will reconnect in", RECONNECT_DELAY_MS / 1000, "s");
+      console.warn("WebSocket error — will reconnect");
     };
 
     ws.onclose = () => {
       if (this._ws !== ws) return; // intentional disconnect, skip reconnect
-      console.log("WebSocket closed — reconnecting in", RECONNECT_DELAY_MS / 1000, "s");
+      console.log("WebSocket closed — scheduling reconnect");
       this._ws = null;
       this._scheduleReconnect();
     };
@@ -301,12 +316,19 @@ class WhatsnowplayingPlugin extends Plugin {
   }
 
   _scheduleReconnect() {
+    if (this._retryCount >= RECONNECT_MAX_RETRIES) {
+      console.error("WNP connection failed after", RECONNECT_MAX_RETRIES, "retries — giving up. Reload the plugin to reconnect.");
+      return;
+    }
+    const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * Math.pow(2, this._retryCount));
+    this._retryCount++;
+    console.log(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this._retryCount} of ${RECONNECT_MAX_RETRIES})`);
     this._reconnectTimer = setTimeout(async () => {
       this._reconnectTimer = null;
       this._lastKey = null;
       await this._startDiscovery();
       if (await this._handshake()) this._connect();
-    }, RECONNECT_DELAY_MS);
+    }, delay);
   }
 
   async _handleMetadata(data) {
@@ -369,6 +391,9 @@ class WhatsnowplayingPlugin extends Plugin {
       duration_hhmmss:    data.duration_hhmmss    ?? "",
       duration_sec:       total !== null ? String(total) : "",
       isrc,
+      cover_palette:          data.cover_palette          ?? "",
+      cover_palette_lighting: data.cover_palette_lighting ?? "",
+      cover_palette_type:     data.cover_palette_type     ?? "",
       coverurl,
       filename:           data.filename           ?? "",
       track:              data.track              ?? "",

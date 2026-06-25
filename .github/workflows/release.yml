@@ -16,6 +16,21 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Check out Lumia Plugin SDK
+        uses: actions/checkout@v7
+        with:
+          repository: lumiastream/Plugin-SDK
+          path: lumia-plugin-sdk
+
+      - name: Install SDK CLI dependencies
+        run: npm install --prefix lumia-plugin-sdk/cli
+
+      - name: Validate plugin manifest
+        run: node lumia-plugin-sdk/cli/scripts/cli.js validate .
+
+      - name: Audit plugin hooks
+        run: node lumia-plugin-sdk/scripts/plugin-audit.js .
+
       - name: Set version from tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"

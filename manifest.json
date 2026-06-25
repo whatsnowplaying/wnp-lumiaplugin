@@ -2,11 +2,11 @@
   "id": "whatsnowplaying",
   "name": "What's Now Playing",
   "version": "1.0.0",
-  "author": "whatsnowplaying",
-  "email": "",
-  "website": "https://whatsnowplaying.github.io/whats-now-playing/",
-  "repository": "https://github.com/whatsnowplaying/whats-now-playing",
-  "description": "Exposes DJ track metadata from What's Now Playing as Lumia variables and fires a switchSong alert on every track change.",
+  "author": "What's Now Playing",
+  "email": "wnp@effectivemachines.com",
+  "website": "https://whatsnowplaying.com/",
+  "repository": "https://github.com/whatsnowplaying/wnp-lumiaplugin",
+  "description": "Exposes DJ track metadata from What's Now Playing as Lumia Stream variables and fires a Track Changed alert on every track change.",
   "license": "MIT",
   "lumiaVersion": "^9.0.0",
   "category": "apps",
@@ -28,7 +28,7 @@
         "defaultValue": 8899,
         "min": 1,
         "max": 65535,
-        "helperText": "HTTP port that What's Now Playing is running on (default: 8899). Change only if you customized the WNP web server port."
+        "helperText": "Web server port that What's Now Playing is running on (default: 8899). Change only if you customized the WNP web server port."
       }
     ],
     "variables": [
