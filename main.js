@@ -289,12 +289,12 @@ class WhatsnowplayingPlugin extends Plugin {
     };
 
     ws.onerror = () => {
-      console.warn("WebSocket error — will reconnect in", RECONNECT_DELAY_MS / 1000, "s");
+      console.warn("WebSocket error — will reconnect");
     };
 
     ws.onclose = () => {
       if (this._ws !== ws) return; // intentional disconnect, skip reconnect
-      console.log("WebSocket closed — reconnecting in", RECONNECT_DELAY_MS / 1000, "s");
+      console.log("WebSocket closed — scheduling reconnect");
       this._ws = null;
       this._scheduleReconnect();
     };
@@ -322,7 +322,7 @@ class WhatsnowplayingPlugin extends Plugin {
     }
     const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * Math.pow(2, this._retryCount));
     this._retryCount++;
-    console.log("Reconnecting in", Math.round(delay / 1000), "s (attempt", this._retryCount, "of", RECONNECT_MAX_RETRIES + ")");
+    console.log(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this._retryCount} of ${RECONNECT_MAX_RETRIES})`);
     this._reconnectTimer = setTimeout(async () => {
       this._reconnectTimer = null;
       this._lastKey = null;
