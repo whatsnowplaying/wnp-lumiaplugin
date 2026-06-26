@@ -40,11 +40,14 @@ jobs:
           fi
           jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
 
-      - name: Strip comments
-        run: npx terser main.js --comments false -o main.js
+      - name: Strip comments and stage plugin files
+        run: |
+          mkdir /tmp/plugin-stage
+          npx terser main.js --comments false -o /tmp/plugin-stage/main.js
+          cp manifest.json package.json /tmp/plugin-stage/
 
       - name: Build plugin
-        run: npx lumia-plugin build
+        run: npx lumia-plugin build --dir /tmp/plugin-stage --out .
 
       - name: Upload release artifact
         uses: softprops/action-gh-release@v3
