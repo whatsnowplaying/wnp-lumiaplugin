@@ -20,16 +20,16 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: lumiastream/Plugin-SDK
-          path: lumia-plugin-sdk
+          path: ../lumia-plugin-sdk
 
       - name: Install SDK CLI dependencies
-        run: npm install --prefix lumia-plugin-sdk/cli
+        run: npm install --prefix ../lumia-plugin-sdk/cli
 
       - name: Validate plugin manifest
-        run: node lumia-plugin-sdk/cli/scripts/cli.js validate .
+        run: node ../lumia-plugin-sdk/cli/scripts/cli.js validate .
 
       - name: Audit plugin hooks
-        run: node lumia-plugin-sdk/scripts/plugin-audit.js .
+        run: node ../lumia-plugin-sdk/scripts/plugin-audit.js .
 
       - name: Set version from tag
         run: |
@@ -40,11 +40,14 @@ jobs:
           fi
           jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
 
-      - name: Strip comments
-        run: npx terser main.js --comments false -o main.js
+      - name: Strip comments and stage plugin files
+        run: |
+          mkdir /tmp/plugin-stage
+          npx terser main.js --comments false -o /tmp/plugin-stage/main.js
+          cp manifest.json package.json /tmp/plugin-stage/
 
       - name: Build plugin
-        run: npx lumia-plugin build
+        run: npx lumia-plugin build --dir /tmp/plugin-stage --out .
 
       - name: Upload release artifact
         uses: softprops/action-gh-release@v3
