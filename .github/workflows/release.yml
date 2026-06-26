@@ -40,6 +40,9 @@ jobs:
           fi
           jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
 
+      - name: Strip comments
+        run: npx terser main.js --comments false -o main.js
+
       - name: Build plugin
         run: npx lumia-plugin build
 

@@ -127,7 +127,8 @@ function discoverWNP(timeoutMs) {
       const p = parseMdnsPacket(msg);
       if (!p) return;
       for (const srv of p.srvRecords) {
-        if (srv.name.toLowerCase().includes("_whatsnowplaying._tcp")) {
+        const name = srv.name.toLowerCase();
+        if (name === "_whatsnowplaying._tcp" || name.endsWith("._whatsnowplaying._tcp.local")) {
           srvMap.set(srv.target.toLowerCase(), srv.port);
         }
       }
