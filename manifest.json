@@ -29,6 +29,13 @@
         "min": 1,
         "max": 65535,
         "helperText": "Web server port that What's Now Playing is running on (default: 8899). Change only if you customized the WNP web server port."
+      },
+      {
+        "key": "preferred_hostname",
+        "label": "Preferred Hostname",
+        "type": "text",
+        "defaultValue": "",
+        "helperText": "If multiple WNP instances are found on the network, connect to this one (e.g. 'my-macbook.local'). Leave blank to use the first discovered."
       }
     ],
     "variables": [

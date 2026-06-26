@@ -11,7 +11,6 @@ const WNP_SERVICE = "_whatsnowplaying._tcp.local.";
 const MDNS_TIMEOUT_MS = 3000;
 const RECONNECT_BASE_MS = 2000;
 const RECONNECT_MAX_MS = 60000;
-const RECONNECT_MAX_RETRIES = 10;
 
 const VARS = [
   "title", "artist", "album", "albumartist", "genre", "date",
@@ -103,31 +102,22 @@ function parseMdnsPacket(buf) {
 function discoverWNP(timeoutMs) {
   return new Promise((resolve) => {
     const sock = dgram.createSocket({ type: "udp4", reuseAddr: true });
-    let done = false;
-    const srvMap = new Map();
+    const srvMap = new Map(); // target.lower → port
     const aMap = {};
 
-    const tryResolve = () => {
-      for (const [target, port] of srvMap) {
-        const ip = aMap[target];
-        if (ip) { finish({ host: ip, port }); return; }
-      }
-    };
-
-    const finish = (result) => {
-      if (done) return;
-      done = true;
+    const finish = (results) => {
       clearTimeout(timer);
       try { sock.close(); } catch {}
-      resolve(result);
+      resolve(results);
     };
 
     const timer = setTimeout(() => {
+      const results = [];
       for (const [target, port] of srvMap) {
-        finish(aMap[target] ? { host: aMap[target], port } : { host: target, port });
-        return;
+        const ip = aMap[target];
+        results.push({ host: ip ?? target, port, hostname: target });
       }
-      finish(null);
+      finish(results);
     }, timeoutMs);
 
     sock.on("message", (msg) => {
@@ -135,10 +125,9 @@ function discoverWNP(timeoutMs) {
       if (!p) return;
       for (const srv of p.srvRecords) srvMap.set(srv.target.toLowerCase(), srv.port);
       Object.assign(aMap, p.aRecords);
-      tryResolve();
     });
 
-    sock.on("error", () => finish(null));
+    sock.on("error", () => finish([]));
 
     sock.bind(MDNS_PORT, () => {
       try {
@@ -146,7 +135,7 @@ function discoverWNP(timeoutMs) {
         sock.setMulticastLoopback(true);
         const q = buildPtrQuery(WNP_SERVICE);
         sock.send(q, 0, q.length, MDNS_PORT, MDNS_ADDR);
-      } catch { finish(null); }
+      } catch { finish([]); }
     });
   });
 }
@@ -227,12 +216,37 @@ class WhatsnowplayingPlugin extends Plugin {
       try {
         console.log("Discovering WNP via mDNS...");
         const found = await discoverWNP(MDNS_TIMEOUT_MS);
-        if (found) {
-          this._discovered = found;
-          console.log("Discovered WNP at", this._discovered.host + ":" + this._discovered.port);
-        } else {
+        if (found.length === 0) {
           console.log("mDNS discovery timed out — falling back to", this._host() + ":" + this._port());
+          return;
         }
+
+        for (const s of found) {
+          console.log("Found WNP instance:", s.hostname, "at", s.host + ":" + s.port);
+        }
+
+        const preferred = String(this.settings?.preferred_hostname ?? "").trim().toLowerCase()
+          .replace(/\.local\.?$/, "");
+
+        let chosen = found[0];
+        if (preferred) {
+          const match = found.find(
+            (s) => s.hostname.replace(/\.local\.?$/, "").toLowerCase() === preferred
+          );
+          if (match) {
+            chosen = match;
+          } else {
+            console.warn("Preferred hostname", preferred, "not found — using", chosen.hostname);
+          }
+        } else if (found.length > 1) {
+          console.warn(
+            "Multiple WNP instances found — using", chosen.hostname +
+            ". Set preferred_hostname to select a specific one."
+          );
+        }
+
+        this._discovered = chosen;
+        console.log("Connected to WNP at", chosen.host + ":" + chosen.port, "(" + chosen.hostname + ")");
       } finally {
         this._discoveryPromise = null;
       }
@@ -316,13 +330,9 @@ class WhatsnowplayingPlugin extends Plugin {
   }
 
   _scheduleReconnect() {
-    if (this._retryCount >= RECONNECT_MAX_RETRIES) {
-      console.error("WNP connection failed after", RECONNECT_MAX_RETRIES, "retries — giving up. Reload the plugin to reconnect.");
-      return;
-    }
     const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * Math.pow(2, this._retryCount));
     this._retryCount++;
-    console.log(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this._retryCount} of ${RECONNECT_MAX_RETRIES})`);
+    console.log(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this._retryCount})`);
     this._reconnectTimer = setTimeout(async () => {
       this._reconnectTimer = null;
       this._lastKey = null;
