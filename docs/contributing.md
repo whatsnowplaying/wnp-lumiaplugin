@@ -14,8 +14,8 @@ track change, and sends `{"last": true}` on shutdown.
 * `onsettingsupdate()` — disconnect and reconnect if host or port changed
 
 Reconnection uses exponential backoff starting at `RECONNECT_BASE_MS`, doubling up to
-`RECONNECT_MAX_MS`, and gives up after `RECONNECT_MAX_RETRIES` attempts. The retry counter
-resets on a successful WebSocket `onopen`.
+`RECONNECT_MAX_MS`, then retries indefinitely at that interval. The retry counter resets
+on a successful WebSocket `onopen`.
 
 ### Adding a variable
 
