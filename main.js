@@ -126,7 +126,11 @@ function discoverWNP(timeoutMs) {
     sock.on("message", (msg) => {
       const p = parseMdnsPacket(msg);
       if (!p) return;
-      for (const srv of p.srvRecords) srvMap.set(srv.target.toLowerCase(), srv.port);
+      for (const srv of p.srvRecords) {
+        if (srv.name.toLowerCase().includes("_whatsnowplaying._tcp")) {
+          srvMap.set(srv.target.toLowerCase(), srv.port);
+        }
+      }
       Object.assign(aMap, p.aRecords);
     });
 
