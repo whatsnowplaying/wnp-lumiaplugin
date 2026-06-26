@@ -20,13 +20,13 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: lumiastream/Plugin-SDK
-          path: ../lumia-plugin-sdk
+          path: lumia-plugin-sdk
 
       - name: Install SDK CLI dependencies
-        run: npm install --prefix ../lumia-plugin-sdk/cli
+        run: npm install --prefix lumia-plugin-sdk/cli
 
       - name: Validate plugin manifest
-        run: node ../lumia-plugin-sdk/cli/scripts/cli.js validate .
+        run: node lumia-plugin-sdk/cli/scripts/cli.js validate .
 
       - name: Audit plugin hooks
-        run: node ../lumia-plugin-sdk/scripts/plugin-audit.js .
+        run: node lumia-plugin-sdk/scripts/plugin-audit.js .
