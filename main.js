@@ -104,8 +104,11 @@ function discoverWNP(timeoutMs) {
     const sock = dgram.createSocket({ type: "udp4", reuseAddr: true });
     const srvMap = new Map(); // target.lower → port
     const aMap = {};
+    let done = false;
 
     const finish = (results) => {
+      if (done) return;
+      done = true;
       clearTimeout(timer);
       try { sock.close(); } catch {}
       resolve(results);
@@ -138,6 +141,12 @@ function discoverWNP(timeoutMs) {
       } catch { finish([]); }
     });
   });
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function normalizeHostname(h) {
+  return String(h ?? "").trim().toLowerCase().replace(/\.local\.?$/, "");
 }
 
 // ── Plugin ───────────────────────────────────────────────────────────────────
@@ -225,14 +234,11 @@ class WhatsnowplayingPlugin extends Plugin {
           console.log("Found WNP instance:", s.hostname, "at", s.host + ":" + s.port);
         }
 
-        const preferred = String(this.settings?.preferred_hostname ?? "").trim().toLowerCase()
-          .replace(/\.local\.?$/, "");
+        const preferred = normalizeHostname(this.settings?.preferred_hostname);
 
         let chosen = found[0];
         if (preferred) {
-          const match = found.find(
-            (s) => s.hostname.replace(/\.local\.?$/, "").toLowerCase() === preferred
-          );
+          const match = found.find((s) => normalizeHostname(s.hostname) === preferred);
           if (match) {
             chosen = match;
           } else {
