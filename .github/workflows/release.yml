@@ -47,7 +47,7 @@ jobs:
           cp manifest.json package.json /tmp/plugin-stage/
 
       - name: Build plugin
-        run: npx lumia-plugin build --dir /tmp/plugin-stage --out .
+        run: npx lumia-plugin build --dir /tmp/plugin-stage
 
       - name: Upload release artifact
         uses: softprops/action-gh-release@v3
