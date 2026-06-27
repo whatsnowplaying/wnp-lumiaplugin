@@ -51,8 +51,11 @@ function decodeDnsName(buf, offset) {
       break;
     }
     if ((len & 0xc0) === 0xc0) {
+      if (pos + 1 >= buf.length) break;
+      const ptr = ((len & 0x3f) << 8) | buf[pos + 1];
+      if (ptr >= buf.length) break;
       if (end < 0) end = pos + 2;
-      pos = ((len & 0x3f) << 8) | buf[pos + 1];
+      pos = ptr;
       continue;
     }
     labels.push(buf.subarray(pos + 1, pos + 1 + len).toString("utf8"));
@@ -166,6 +169,7 @@ class WhatsnowplayingPlugin extends Plugin {
     this._discovered = null;
     this._discoveryPromise = null;
     this._discoveryStartedAt = 0;
+    this._connectionGeneration = 0;
   }
 
   async onload() {
@@ -214,6 +218,7 @@ class WhatsnowplayingPlugin extends Plugin {
   }
 
   _startDiscovery() {
+    this._discovered = null;
     if (this._discoveryPromise) {
       const age = Date.now() - this._discoveryStartedAt;
       if (age < MDNS_TIMEOUT_MS + 1000) return this._discoveryPromise;
@@ -221,7 +226,6 @@ class WhatsnowplayingPlugin extends Plugin {
       this._discoveryPromise = null;
     }
     if (!this._isAuto()) {
-      this._discovered = null;
       console.log("Using manual address:", this._host() + ":" + this._port());
       return Promise.resolve();
     }
@@ -326,6 +330,7 @@ class WhatsnowplayingPlugin extends Plugin {
   }
 
   _disconnect() {
+    this._connectionGeneration++;
     if (this._reconnectTimer) {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
@@ -341,13 +346,17 @@ class WhatsnowplayingPlugin extends Plugin {
   }
 
   _scheduleReconnect() {
+    if (this._reconnectTimer) return;
     const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * Math.pow(2, this._retryCount));
     this._retryCount++;
+    const generation = ++this._connectionGeneration;
     console.log(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this._retryCount})`);
     this._reconnectTimer = setTimeout(async () => {
       this._reconnectTimer = null;
+      if (generation !== this._connectionGeneration) return;
       this._lastKey = null;
       await this._startDiscovery();
+      if (generation !== this._connectionGeneration) return;
       if (await this._handshake()) this._connect();
     }, delay);
   }
